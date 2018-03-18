@@ -18,6 +18,7 @@ package com.example.android.soonami;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -109,7 +110,12 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Event doInBackground(URL... urls) {
             // Create URL object
-            URL url = createUrl(USGS_REQUEST_URL);
+            URL url = null;
+            try {
+                url = createUrl(USGS_REQUEST_URL);
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
 
             // Perform HTTP request to the URL and receive a JSON response back
             String jsonResponse = "";
@@ -142,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         /**
          * Returns new URL object from the given string URL.
          */
-        private URL createUrl(String stringUrl) {
+        private URL createUrl(String stringUrl) throws MalformedURLException {
             URL url = null;
             try {
                 url = new URL(stringUrl);
@@ -158,6 +164,12 @@ public class MainActivity extends AppCompatActivity {
          */
         private String makeHttpRequest(URL url) throws IOException {
             String jsonResponse = "";
+
+            //if the URL is null, then return early.
+            if (url == null) {
+                return jsonResponse;
+            }
+
             HttpURLConnection urlConnection = null;
             InputStream inputStream = null;
             try {
@@ -166,10 +178,18 @@ public class MainActivity extends AppCompatActivity {
                 urlConnection.setReadTimeout(10000 /* milliseconds */);
                 urlConnection.setConnectTimeout(15000 /* milliseconds */);
                 urlConnection.connect();
-                inputStream = urlConnection.getInputStream();
-                jsonResponse = readFromStream(inputStream);
+
+                //If the request was successful ( response code 200 )
+                //then read the input stream and parse the response
+                if (urlConnection.getResponseCode() == 200) {
+                    inputStream = urlConnection.getInputStream();
+                    jsonResponse = readFromStream(inputStream);
+                }
             } catch (IOException e) {
                 // TODO: Handle the exception
+
+                Log.e("Test", "The Url is invalid", e);
+
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -205,6 +225,11 @@ public class MainActivity extends AppCompatActivity {
          * about the first earthquake from the input earthquakeJSON string.
          */
         private Event extractFeatureFromJson(String earthquakeJSON) {
+            //If the JSON string is empty or null, then return early.
+            if (TextUtils.isEmpty(earthquakeJSON)) {
+                return null;
+            }
+
             try {
                 JSONObject baseJsonResponse = new JSONObject(earthquakeJSON);
                 JSONArray featureArray = baseJsonResponse.getJSONArray("features");
